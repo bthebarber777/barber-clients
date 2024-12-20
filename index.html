@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barber Client Manager</title>
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQmFyYmVyIENsaWVudCBNYW5hZ2VyIiwic2hvcnRfbmFtZSI6IkNsaWVudCBNYW5hZ2VyIiwiZGVzY3JpcHRpb24iOiJNYW5hZ2UgeW91ciBiYXJiZXJzaG9wIGNsaWVudHMiLCJzdGFydF91cmwiOiIvIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiI2ZmZmZmZiIsInRoZW1lX2NvbG9yIjoiIzRDQUY1MCIsImljb25zIjpbeyJzcmMiOiIvYXBpL3BsYWNlaG9sZGVyLzE5Mi8xOTIiLCJzaXplcyI6IjE5MngxOTIiLCJ0eXBlIjoiaW1hZ2UvcG5nIn1dfQ==">
+    <meta name="theme-color" content="#4CAF50">
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        .camera-button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        .photo-preview {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .client-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .client-card h3 {
+            margin: 0 0 8px 0;
+            color: #333;
+        }
+
+        .client-card p {
+            margin: 8px 0;
+            color: #666;
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+        }
+
+        .tab-bar {
+            display: flex;
+            margin-bottom: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            border-radius: 6px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .tab.active {
+            background: white;
+            color: #4CAF50;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #offline-status {
+            display: none;
+            background: #ff9800;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            margin-bottom: 16px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="offline-status">You're offline. Data will be saved and synced when you're back online.</div>
+
+        <div class="tab-bar">
+            <button class="tab active" onclick="showSection('form')">New Client</button>
+            <button class="tab" onclick="showSection('list')">Client List</button>
+        </div>
+
+        <div id="formSection">
+            <h2>New Client</h2>
+            <form id="clientForm">
+                <div class="form-group">
+                    <label for="name">Client Name:</label>
+                    <input type="text" id="name" required autocomplete="name">
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number:</label>
+                    <input type="tel" id="phone" required autocomplete="tel">
+                </div>
+
+                <div class="form-group">
+                    <button type="button" class="camera-button" onclick="openCamera()">
+                        Take Client Photo
+                    </button>
+                    <input type="file" id="photo" accept="image/*" capture="environment" style="display: none">
+                    <img id="photoPreview" class="photo-preview" style="display: none;">
+                </div>
+
+                <div class="form-group">
+                    <label for="guards">Guards Used:</label>
+                    <input type="text" id="guards" placeholder="e.g., #2 on sides, #3 on top">
+                </div>
+
+                <div class="form-group">
+                    <label for="haircut">Haircut Style:</label>
+                    <input type="text" id="haircut" placeholder="e.g., Fade, Undercut, etc.">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Additional Notes:</label>
+                    <textarea id="notes" rows="3"></textarea>
+                </div>
+
+                <button type="submit">Save Client Information</button>
+            </form>
+        </div>
+
+        <div id="listSection" style="display: none;">
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search clients..." oninput="filterClients()">
+            </div>
+            <div id="clientList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:application/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZXZlbnQgPT4ge2V2ZW50LndhaXRVbnRpbChzZWxmLnNraXBXYWl0aW5nKCkpfSk7c2VsZi5hZGRFdmVudExpc3RlbmVyKCdhY3RpdmF0ZScsIGV2ZW50ID0+IHtldmVudC53YWl0VW50aWwoc2VsZi5jbGllbnRzLmNsYWltKCkpfSk7c2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIGV2ZW50ID0+IHtldmVudC5yZXNwb25kV2l0aChmZXRjaChldmVudC5yZXF1ZXN0KSl9KTs=')
+                .then(() => console.log('Service Worker registered'))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        }
+
+        // Check for offline status
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+
+        function updateOfflineStatus() {
+            const status = document.getElementById('offline-status');
+            status.style.display = navigator.onLine ? 'none' : 'block';
+        }
+
+        // Handle camera
+        function openCamera() {
+            document.getElementById('photo').click();
+        }
+
+        document.getElementById('photo').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('photoPreview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Form submission
+        document.getElementById('clientForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const client = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                photo: document.getElementById('photoPreview').src,
+                guards: document.getElementById('guards').value,
+                haircut: document.getElementById('haircut').value,
+                notes: document.getElementById('notes').value,
+                date: new Date().toLocaleDateString()
+            };
+
+            let clients = JSON.parse(localStorage.getItem('clients') || '[]');
+            clients.push(client);
+            localStorage.setItem('clients', JSON.stringify(clients));
+
+            displayClients();
+            e.target.reset();
+            document.getElementById('photoPreview').style.display = 'none';
+            
+            // Show success message
+            alert('Client information saved successfully!');
+        });
+
+        // Display clients
+        function displayClients() {
+            const clientList = document.getElementById('clientList');
+            const clients = JSON.parse(localStorage.getItem('clients') || '[]');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filteredClients = clients.filter(client => 
+                client.name.toLowerCase().includes(searchTerm) ||
+                client.phone.includes(searchTerm) ||
+                client.haircut.toLowerCase().includes(searchTerm)
+            );
+            
+            clientList.innerHTML = filteredClients.map(client => `
+                <div class="client-card">
+                    <h3>${client.name}</h3>
+                    <p>Phone: ${client.phone}</p>
+                    ${client.photo ? `<img src="${client.photo}" class="photo-preview">` : ''}
+                    <p>Guards Used: ${client.guards}</p>
+                    <p>Haircut Style: ${cli
