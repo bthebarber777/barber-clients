@@ -1,3 +1,5 @@
+Optimized Barber Client PWA Code
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -58,6 +60,31 @@
             margin-bottom: 16px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        .visit-history {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 6px;
+        }
+        .visit-count {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        .history-entry {
+            border-left: 3px solid #4CAF50;
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+        }
+        .add-visit-btn {
+            background: #2196F3;
+            margin-top: 10px;
+        }
         .tab-bar {
             display: flex;
             margin-bottom: 20px;
@@ -78,6 +105,13 @@
             color: #4CAF50;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        .datetime-group {
+            display: flex;
+            gap: 10px;
+        }
+        .datetime-group input {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -97,6 +131,14 @@
                 <div class="form-group">
                     <label for="phone">Phone Number:</label>
                     <input type="tel" id="phone" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Visit Date and Time:</label>
+                    <div class="datetime-group">
+                        <input type="date" id="visitDate" required value="">
+                        <input type="time" id="visitTime" required value="">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -131,16 +173,22 @@
     </div>
 
     <script>
+        // Set default date and time to now
+        const now = new Date();
+        document.getElementById('visitDate').value = now.toISOString().split('T')[0];
+        document.getElementById('visitTime').value = now.toTimeString().slice(0,5);
+
         let db;
         const dbName = 'BarberClientsDB';
-        const request = indexedDB.open(dbName, 1);
+        const request = indexedDB.open(dbName, 2); // Increased version number for new schema
 
         request.onerror = () => alert('Database error. Please try again.');
 
         request.onupgradeneeded = (event) => {
             db = event.target.result;
             if (!db.objectStoreNames.contains('clients')) {
-                db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
+                const store = db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
+                store.createIndex('phoneIndex', 'phone', { unique: false });
             }
         };
 
@@ -173,29 +221,100 @@
         });
 
         // Save client
-        document.getElementById('clientForm').addEventListener('submit', function(e) {
+        document.getElementById('clientForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const client = {
-                name: document.getElementById('name').value,
-                phone: document.getElementById('phone').value,
-                photo: document.getElementById('photoPreview').src,
+            const visitDate = document.getElementById('visitDate').value;
+            const visitTime = document.getElementById('visitTime').value;
+            
+            const visit = {
+                date: visitDate,
+                time: visitTime,
                 guards: document.getElementById('guards').value,
                 haircut: document.getElementById('haircut').value,
-                notes: document.getElementById('notes').value,
-                date: new Date().toLocaleDateString()
+                notes: document.getElementById('notes').value
+            };
+
+            const transaction = db.transaction(['clients'], 'readwrite');
+            const store = transaction.objectStore('clients');
+            const phoneIndex = store.index('phoneIndex');
+
+            try {
+                // Check if client with this phone number exists
+                const phone = document.getElementById('phone').value;
+                const existingClientRequest = phoneIndex.get(phone);
+                
+                existingClientRequest.onsuccess = function(event) {
+                    const existingClient = event.target.result;
+                    
+                    if (existingClient) {
+                        // Update existing client
+                        existingClient.visits = existingClient.visits || [];
+                        existingClient.visits.unshift(visit);
+                        store.put(existingClient).onsuccess = () => {
+                            alert('Visit added to existing client!');
+                            document.getElementById('clientForm').reset();
+                            document.getElementById('photoPreview').style.display = 'none';
+                            displayClients();
+                        };
+                    } else {
+                        // Create new client
+                        const newClient = {
+                            name: document.getElementById('name').value,
+                            phone: phone,
+                            photo: document.getElementById('photoPreview').src,
+                            visits: [visit]
+                        };
+                        
+                        store.add(newClient).onsuccess = () => {
+                            alert('New client saved!');
+                            document.getElementById('clientForm').reset();
+                            document.getElementById('photoPreview').style.display = 'none';
+                            displayClients();
+                        };
+                    }
+                };
+            } catch (err) {
+                alert('Error saving client. Please try again.');
+                console.error(err);
+            }
+        });
+
+        // Add new visit to existing client
+        async function addVisit(clientId) {
+            const visitDate = prompt('Enter visit date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+            if (!visitDate) return;
+            
+            const visitTime = prompt('Enter visit time (HH:MM):', new Date().toTimeString().slice(0,5));
+            if (!visitTime) return;
+            
+            const guards = prompt('Guards used:', '');
+            const haircut = prompt('Haircut style:', '');
+            const notes = prompt('Notes:', '');
+
+            const visit = {
+                date: visitDate,
+                time: visitTime,
+                guards: guards,
+                haircut: haircut,
+                notes: notes
             };
 
             const transaction = db.transaction(['clients'], 'readwrite');
             const store = transaction.objectStore('clients');
             
-            store.add(client).onsuccess = () => {
-                alert('Client saved!');
-                this.reset();
-                document.getElementById('photoPreview').style.display = 'none';
-                displayClients();
+            const clientRequest = store.get(clientId);
+            clientRequest.onsuccess = function(event) {
+                const client = event.target.result;
+                client.visits = client.visits || [];
+                client.visits.unshift(visit);
+                
+                store.put(client).onsuccess = () => {
+                    alert('Visit added successfully!');
+                    displayClients();
+                };
             };
-        });
+        }
 
         // Display clients
         function displayClients() {
@@ -208,19 +327,34 @@
             store.getAll().onsuccess = function(event) {
                 const clients = event.target.result.filter(client =>
                     client.name.toLowerCase().includes(searchTerm) ||
-                    client.phone.includes(searchTerm) ||
-                    client.haircut.toLowerCase().includes(searchTerm)
+                    client.phone.includes(searchTerm)
                 );
 
                 clientList.innerHTML = clients.map(client => `
                     <div class="client-card">
-                        <h3>${client.name}</h3>
+                        <h3>${client.name} 
+                            <span class="visit-count">
+                                ${client.visits ? client.visits.length : 0} visits
+                            </span>
+                        </h3>
                         <p>Phone: ${client.phone}</p>
                         ${client.photo ? `<img src="${client.photo}" class="photo-preview">` : ''}
-                        <p>Guards Used: ${client.guards}</p>
-                        <p>Haircut Style: ${client.haircut}</p>
-                        <p>Notes: ${client.notes}</p>
-                        <p>Date: ${client.date}</p>
+                        
+                        <div class="visit-history">
+                            <h4>Visit History</h4>
+                            ${client.visits ? client.visits.map(visit => `
+                                <div class="history-entry">
+                                    <strong>${visit.date} at ${visit.time}</strong>
+                                    <p>Guards: ${visit.guards}</p>
+                                    <p>Haircut: ${visit.haircut}</p>
+                                    ${visit.notes ? `<p>Notes: ${visit.notes}</p>` : ''}
+                                </div>
+                            `).join('') : 'No visits recorded'}
+                        </div>
+                        
+                        <button onclick="addVisit(${client.id})" class="add-visit-btn">
+                            Add New Visit
+                        </button>
                     </div>
                 `).join('');
             };
