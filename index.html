@@ -1,15 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- [Previous head section remains the same] -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Barber Client Manager</title>
     <meta name="theme-color" content="#4CAF50">
     <style>
-        /* [Previous styles remain the same] */
+        /* Base styles */
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background: #f5f5f5;
+        }
 
-        /* Enhanced search styles */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Form styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        /* Search styles */
         .search-container {
             position: relative;
             margin-bottom: 20px;
@@ -17,8 +50,7 @@
 
         .search-input {
             width: 100%;
-            padding: 12px;
-            padding-left: 40px;
+            padding: 12px 12px 12px 40px;
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 16px;
@@ -30,7 +62,7 @@
         .search-suggestions {
             position: absolute;
             width: 100%;
-            max-height: 200px;
+            max-height: 300px;
             overflow-y: auto;
             background: white;
             border: 1px solid #ddd;
@@ -59,36 +91,188 @@
             color: #666;
         }
 
-        .no-results {
-            padding: 12px;
-            color: #666;
-            text-align: center;
-        }
-
-        /* Highlight matching text */
         .highlight {
             background-color: #ffd700;
             padding: 0 2px;
             border-radius: 2px;
         }
+
+        /* Client card styles */
+        .client-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .visit-count {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .visit-history {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 6px;
+        }
+
+        .history-entry {
+            border-left: 3px solid #4CAF50;
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+        }
+
+        /* Button styles */
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .add-visit-btn {
+            background: #2196F3;
+        }
+
+        /* Tab styles */
+        .tab-bar {
+            display: flex;
+            margin-bottom: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            border-radius: 6px;
+            margin: 0;
+        }
+
+        .tab.active {
+            background: white;
+            color: #4CAF50;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
-    <!-- [Previous HTML structure remains the same until the search section] -->
-    <div id="listSection" style="display: none;">
-        <div class="search-container">
-            <input type="text" 
-                   id="searchInput" 
-                   class="search-input" 
-                   placeholder="Search by first name..."
-                   autocomplete="off">
-            <div id="searchSuggestions" class="search-suggestions"></div>
+    <div class="container">
+        <div class="tab-bar">
+            <button class="tab active" onclick="showSection('form')">New Client</button>
+            <button class="tab" onclick="showSection('list')">Client List</button>
         </div>
-        <div id="clientList"></div>
+
+        <!-- Form Section -->
+        <div id="formSection">
+            <form id="clientForm">
+                <div class="form-group">
+                    <label for="name">Client Name:</label>
+                    <input type="text" id="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number:</label>
+                    <input type="tel" id="phone" required>
+                </div>
+
+                <div class="form-group">
+                    <button type="button" id="cameraButton">Take Client Photo</button>
+                    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none">
+                    <img id="photoPreview" class="photo-preview" style="display: none;">
+                </div>
+
+                <div class="form-group">
+                    <label for="guards">Guards Used:</label>
+                    <input type="text" id="guards" placeholder="e.g., #2 on sides, #3 on top">
+                </div>
+
+                <div class="form-group">
+                    <label for="haircut">Haircut Style:</label>
+                    <input type="text" id="haircut" placeholder="e.g., Fade, Undercut, etc.">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Notes:</label>
+                    <textarea id="notes" rows="3"></textarea>
+                </div>
+
+                <button type="submit">Save Client</button>
+            </form>
+        </div>
+
+        <!-- List Section -->
+        <div id="listSection" style="display: none;">
+            <div class="search-container">
+                <input type="text" 
+                       id="searchInput" 
+                       class="search-input" 
+                       placeholder="Search by first name..."
+                       autocomplete="off">
+                <div id="searchSuggestions" class="search-suggestions"></div>
+            </div>
+            <div id="clientList"></div>
+        </div>
     </div>
 
     <script>
-        // [Previous initialization code remains the same]
+        // Initialize IndexedDB
+        let db;
+        const dbName = 'BarberClientsDB';
+        const DB_VERSION = 5; // Increased for new schema
+
+        // Database initialization
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, DB_VERSION);
+                
+                request.onerror = (event) => {
+                    console.error('Database error:', event.target.error);
+                    reject(event.target.error);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    
+                    // Create or update stores
+                    if (db.objectStoreNames.contains('clients')) {
+                        db.deleteObjectStore('clients');
+                    }
+                    
+                    const store = db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
+                    
+                    // Create indexes for searching
+                    store.createIndex('nameIndex', 'name', { unique: false });
+                    store.createIndex('firstNameIndex', 'firstName', { unique: false });
+                    store.createIndex('phoneIndex', 'phone', { unique: false });
+                    store.createIndex('lastVisitIndex', 'lastVisit', { unique: false });
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    console.log('Database initialized successfully');
+                    resolve(db);
+                };
+            });
+        }
 
         // Enhanced search functionality
         let searchTimeout;
@@ -98,10 +282,8 @@
         searchInput.addEventListener('input', function(e) {
             const searchTerm = e.target.value.trim();
             
-            // Clear previous timeout
             clearTimeout(searchTimeout);
             
-            // Set new timeout for searching
             searchTimeout = setTimeout(() => {
                 if (searchTerm.length > 0) {
                     searchClients(searchTerm);
@@ -109,56 +291,47 @@
                     searchSuggestions.style.display = 'none';
                     displayClients();
                 }
-            }, 300); // 300ms delay for better performance
-        });
-
-        // Hide suggestions when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
-                searchSuggestions.style.display = 'none';
-            }
+            }, 300);
         });
 
         async function searchClients(searchTerm) {
-            const transaction = db.transaction(['clients'], 'readonly');
-            const store = transaction.objectStore('clients');
-            const clients = await new Promise((resolve) => {
-                store.getAll().onsuccess = (event) => resolve(event.target.result);
-            });
+            try {
+                const transaction = db.transaction(['clients'], 'readonly');
+                const store = transaction.objectStore('clients');
+                const clients = await new Promise((resolve) => {
+                    store.getAll().onsuccess = (event) => resolve(event.target.result);
+                });
 
-            // Split search term into first name and last name
-            const terms = searchTerm.toLowerCase().split(' ');
-            const firstName = terms[0];
+                const terms = searchTerm.toLowerCase().split(' ');
+                const firstName = terms[0];
 
-            // Filter clients based on first name
-            const matchingClients = clients.filter(client => {
-                const clientNames = client.name.toLowerCase().split(' ');
-                const clientFirstName = clientNames[0];
-                return clientFirstName.includes(firstName);
-            });
+                const matchingClients = clients.filter(client => {
+                    const clientNames = client.name.toLowerCase().split(' ');
+                    const clientFirstName = clientNames[0];
+                    return clientFirstName.includes(firstName);
+                });
 
-            // Sort results by relevance
-            matchingClients.sort((a, b) => {
-                const aFirstName = a.name.toLowerCase().split(' ')[0];
-                const bFirstName = b.name.toLowerCase().split(' ')[0];
-                
-                // Exact matches first
-                if (aFirstName === firstName) return -1;
-                if (bFirstName === firstName) return 1;
-                
-                // Then by most recent visit
-                return new Date(b.lastVisit) - new Date(a.lastVisit);
-            });
+                matchingClients.sort((a, b) => {
+                    const aFirstName = a.name.toLowerCase().split(' ')[0];
+                    const bFirstName = b.name.toLowerCase().split(' ')[0];
+                    
+                    if (aFirstName === firstName) return -1;
+                    if (bFirstName === firstName) return 1;
+                    
+                    return new Date(b.lastVisit || 0) - new Date(a.lastVisit || 0);
+                });
 
-            displaySearchResults(matchingClients, searchTerm);
+                displaySearchResults(matchingClients, searchTerm);
+            } catch (error) {
+                console.error('Search error:', error);
+                searchSuggestions.innerHTML = '<div class="no-results">Error searching clients</div>';
+                searchSuggestions.style.display = 'block';
+            }
         }
 
         function displaySearchResults(clients, searchTerm) {
-            if (clients.length === 0) {
-                searchSuggestions.innerHTML = `
-                    <div class="no-results">
-                        No clients found with that name
-                    </div>`;
+            if (!clients || clients.length === 0) {
+                searchSuggestions.innerHTML = '<div class="no-results">No clients found</div>';
                 searchSuggestions.style.display = 'block';
                 return;
             }
@@ -189,28 +362,43 @@
             let highlightedText = text;
 
             searchTerms.forEach(term => {
-                const regex = new RegExp(`(${term})`, 'gi');
-                highlightedText = highlightedText.replace(regex, '<span class="highlight">$1</span>');
+                if (term) {
+                    const regex = new RegExp(`(${term})`, 'gi');
+                    highlightedText = highlightedText.replace(regex, '<span class="highlight">$1</span>');
+                }
             });
 
             return highlightedText;
         }
 
         async function selectClient(clientId) {
-            const transaction = db.transaction(['clients'], 'readonly');
-            const store = transaction.objectStore('clients');
-            
-            const client = await new Promise((resolve) => {
-                store.get(clientId).onsuccess = (event) => resolve(event.target.result);
-            });
+            try {
+                const transaction = db.transaction(['clients'], 'readonly');
+                const store = transaction.objectStore('clients');
+                
+                const client = await new Promise((resolve, reject) => {
+                    const request = store.get(clientId);
+                    request.onsuccess = (event) => resolve(event.target.result);
+                    request.onerror = (event) => reject(event.target.error);
+                });
 
-            // Clear search and hide suggestions
-            searchInput.value = '';
-            searchSuggestions.style.display = 'none';
+                if (!client) {
+                    throw new Error('Client not found');
+                }
 
-            // Display only the selected client
-            const clientList = document.getElementById('clientList');
-            clientList.innerHTML = `
+                searchInput.value = '';
+                searchSuggestions.style.display = 'none';
+
+                const clientList = document.getElementById('clientList');
+                clientList.innerHTML = generateClientCard(client);
+            } catch (error) {
+                console.error('Error selecting client:', error);
+                alert('Error loading client details. Please try again.');
+            }
+        }
+
+        function generateClientCard(client) {
+            return `
                 <div class="client-card">
                     <h3>${client.name}
                         <span class="visit-count">
@@ -238,7 +426,6 @@
                 </div>`;
         }
 
-        // [Rest of the previous code remains the same]
-    </script>
-</body>
-</html>
+        // Initialize app
+        async function initApp() {
+            try {
