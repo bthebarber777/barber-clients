@@ -96,42 +96,70 @@
     <script>
         // Database initialization
         let db;
-        const dbName = 'BarberClientsDB';
-        const DB_VERSION = 5;
+const dbName = 'BarberClientsDB';
+const DB_VERSION = 6; // Increased version number
 
-        // Initialize database
-        async function initDB() {
-            try {
-                const request = indexedDB.open(dbName, DB_VERSION);
-                
-                request.onerror = (event) => {
-                    console.error('Database error:', event.target.error);
-                    alert('Database error. Please try again.');
-                };
+// Initialize database
+async function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName, DB_VERSION);
+        
+        request.onerror = (event) => {
+            console.error('Database error:', event.target.error);
+            alert('Database error: ' + event.target.error);
+            reject(event.target.error);
+        };
 
-                request.onupgradeneeded = (event) => {
-                    db = event.target.result;
-                    if (db.objectStoreNames.contains('clients')) {
-                        db.deleteObjectStore('clients');
-                    }
-                    const store = db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
-                    store.createIndex('nameIndex', 'name', { unique: false });
-                    store.createIndex('firstNameIndex', 'firstName', { unique: false });
-                    store.createIndex('phoneIndex', 'phone', { unique: false });
-                    store.createIndex('lastVisitIndex', 'lastVisit', { unique: false });
-                };
-
-                request.onsuccess = (event) => {
-                    db = event.target.result;
-                    console.log('Database initialized successfully');
-                    displayClients();
-                    updateStorageInfo();
-                };
-            } catch (error) {
-                console.error('Error initializing database:', error);
-                alert('Error initializing database. Please refresh the page.');
+        request.onupgradeneeded = (event) => {
+            console.log('Upgrading database...');
+            db = event.target.result;
+            
+            // Delete old store if exists
+            if (db.objectStoreNames.contains('clients')) {
+                db.deleteObjectStore('clients');
             }
-        }
+            
+            // Create new store
+            const store = db.createObjectStore('clients', { 
+                keyPath: 'id', 
+                autoIncrement: true 
+            });
+            
+            // Create indexes
+            store.createIndex('nameIndex', 'name', { unique: false });
+            store.createIndex('firstNameIndex', 'firstName', { unique: false });
+            store.createIndex('phoneIndex', 'phone', { unique: false });
+            store.createIndex('lastVisitIndex', 'lastVisit', { unique: false });
+            
+            console.log('Database upgrade complete');
+        };
+
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            console.log('Database initialized successfully');
+            
+            // Add error handler for database
+            db.onerror = (event) => {
+                console.error('Database error:', event.target.error);
+                alert('Database error: ' + event.target.error);
+            };
+            
+            displayClients();
+            resolve(db);
+        };
+    });
+}
+
+// Call this when the page loads
+window.addEventListener('load', async () => {
+    try {
+        await initDB();
+        console.log('Database initialization complete');
+    } catch (error) {
+        console.error('Failed to initialize database:', error);
+        alert('Failed to initialize database. Please refresh the page.');
+    }
+});
 
         // Camera handling
         document.getElementById('cameraButton').addEventListener('click', async () => {
@@ -158,46 +186,62 @@
         });
 
         // Form submission
-        document.getElementById('clientForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const visitDetails = {
-                date: document.getElementById('visitDate').value,
-                time: document.getElementById('visitTime').value,
-                guards: document.getElementById('guards').value,
-                haircut: document.getElementById('haircut').value,
-                notes: document.getElementById('notes').value
-            };
+document.getElementById('clientForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    console.log('Form submitted'); // Debug log
+    
+    try {
+        // Create visit details
+        const visitDetails = {
+            date: document.getElementById('visitDate').value || new Date().toISOString().split('T')[0],
+            time: document.getElementById('visitTime').value || new Date().toTimeString().slice(0,5),
+            guards: document.getElementById('guards').value || '',
+            haircut: document.getElementById('haircut').value || '',
+            notes: document.getElementById('notes').value || ''
+        };
 
-            const client = {
-                name: document.getElementById('name').value,
-                firstName: document.getElementById('name').value.split(' ')[0].toLowerCase(),
-                phone: document.getElementById('phone').value,
-                photo: document.getElementById('photoPreview').src || '',
-                visits: [visitDetails],
-                lastVisit: new Date().toISOString()
-            };
+        // Create client object
+        const client = {
+            name: document.getElementById('name').value,
+            firstName: document.getElementById('name').value.split(' ')[0].toLowerCase(),
+            phone: document.getElementById('phone').value,
+            photo: document.getElementById('photoPreview').style.display !== 'none' ? document.getElementById('photoPreview').src : '',
+            visits: [visitDetails],
+            lastVisit: new Date().toISOString(),
+            dateCreated: new Date().toISOString()
+        };
 
-            try {
-                const transaction = db.transaction(['clients'], 'readwrite');
-                const store = transaction.objectStore('clients');
-                
-                await new Promise((resolve, reject) => {
-                    const request = store.add(client);
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
+        console.log('Saving client:', client); // Debug log
 
-                alert('Client saved successfully!');
-                this.reset();
-                document.getElementById('photoPreview').style.display = 'none';
-                displayClients();
-                updateStorageInfo();
-            } catch (error) {
-                console.error('Error saving client:', error);
-                alert('Error saving client. Please try again.');
-            }
-        });
+        // Check if database is initialized
+        if (!db) {
+            throw new Error('Database not initialized');
+        }
+
+        // Save to database
+        const transaction = db.transaction(['clients'], 'readwrite');
+        const store = transaction.objectStore('clients');
+        
+        const saveRequest = store.add(client);
+        
+        saveRequest.onsuccess = () => {
+            console.log('Client saved successfully');
+            alert('Client saved successfully!');
+            this.reset();
+            document.getElementById('photoPreview').style.display = 'none';
+            displayClients();
+        };
+
+        saveRequest.onerror = (error) => {
+            console.error('Error saving client:', error);
+            throw new Error('Failed to save client');
+        };
+
+    } catch (error) {
+        console.error('Error in save process:', error);
+        alert('Error saving client: ' + error.message + '. Please try again.');
+    }
+});
 
         // Search functionality
         let searchTimeout;
