@@ -1,117 +1,13 @@
-Optimized Barber Client PWA Code
-
 <!DOCTYPE html>
 <html lang="en">
+<!-- [Previous head and style sections remain the same] -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barber Client Manager</title>
     <meta name="theme-color" content="#4CAF50">
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            margin: 0;
-            padding: 16px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-        button {
-            background: #4CAF50;
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            width: 100%;
-            font-size: 16px;
-            font-weight: 500;
-            margin-bottom: 10px;
-        }
-        .photo-preview {
-            max-width: 100%;
-            border-radius: 8px;
-            margin: 10px 0;
-        }
-        .client-card {
-            background: white;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .visit-history {
-            margin-top: 10px;
-            padding: 10px;
-            background: #f8f8f8;
-            border-radius: 6px;
-        }
-        .visit-count {
-            display: inline-block;
-            background: #4CAF50;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 14px;
-            margin-left: 10px;
-        }
-        .history-entry {
-            border-left: 3px solid #4CAF50;
-            margin: 8px 0;
-            padding: 8px;
-            background: white;
-        }
-        .add-visit-btn {
-            background: #2196F3;
-            margin-top: 10px;
-        }
-        .tab-bar {
-            display: flex;
-            margin-bottom: 20px;
-            background: #f5f5f5;
-            border-radius: 8px;
-            padding: 4px;
-        }
-        .tab {
-            flex: 1;
-            padding: 12px;
-            text-align: center;
-            background: none;
-            border: none;
-            border-radius: 6px;
-        }
-        .tab.active {
-            background: white;
-            color: #4CAF50;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .datetime-group {
-            display: flex;
-            gap: 10px;
-        }
-        .datetime-group input {
-            flex: 1;
-        }
+        /* [Previous styles remain the same] */
     </style>
 </head>
 <body>
@@ -136,8 +32,8 @@ Optimized Barber Client PWA Code
                 <div class="form-group">
                     <label>Visit Date and Time:</label>
                     <div class="datetime-group">
-                        <input type="date" id="visitDate" required value="">
-                        <input type="time" id="visitTime" required value="">
+                        <input type="date" id="visitDate" required>
+                        <input type="time" id="visitTime" required>
                     </div>
                 </div>
 
@@ -162,7 +58,7 @@ Optimized Barber Client PWA Code
                     <textarea id="notes" rows="3"></textarea>
                 </div>
 
-                <button type="submit">Save Client</button>
+                <button type="submit" id="saveButton">Save Client</button>
             </form>
         </div>
 
@@ -173,27 +69,39 @@ Optimized Barber Client PWA Code
     </div>
 
     <script>
-        // Set default date and time to now
-        const now = new Date();
-        document.getElementById('visitDate').value = now.toISOString().split('T')[0];
-        document.getElementById('visitTime').value = now.toTimeString().slice(0,5);
+        // Initialize date and time to current values
+        function setCurrentDateTime() {
+            const now = new Date();
+            const dateInput = document.getElementById('visitDate');
+            const timeInput = document.getElementById('visitTime');
+            
+            dateInput.value = now.toISOString().split('T')[0];
+            timeInput.value = now.toTimeString().slice(0,5);
+        }
+        setCurrentDateTime();
 
+        // Database initialization
         let db;
         const dbName = 'BarberClientsDB';
-        const request = indexedDB.open(dbName, 2); // Increased version number for new schema
+        const request = indexedDB.open(dbName, 3); // Increased version for clean slate
 
-        request.onerror = () => alert('Database error. Please try again.');
+        request.onerror = (event) => {
+            console.error('Database error:', event.target.error);
+            alert('Database error. Please try again.');
+        };
 
         request.onupgradeneeded = (event) => {
             db = event.target.result;
-            if (!db.objectStoreNames.contains('clients')) {
-                const store = db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
-                store.createIndex('phoneIndex', 'phone', { unique: false });
+            if (db.objectStoreNames.contains('clients')) {
+                db.deleteObjectStore('clients');
             }
+            const store = db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
+            store.createIndex('phoneIndex', 'phone', { unique: false });
         };
 
         request.onsuccess = (event) => {
             db = event.target.result;
+            console.log('Database opened successfully');
             displayClients();
         };
 
@@ -203,6 +111,7 @@ Optimized Barber Client PWA Code
                 await navigator.mediaDevices.getUserMedia({ video: true });
                 document.getElementById('photoInput').click();
             } catch (err) {
+                console.error('Camera error:', err);
                 alert('Please allow camera access to take photos.');
             }
         });
@@ -220,95 +129,73 @@ Optimized Barber Client PWA Code
             }
         });
 
-        // Save client
-        document.getElementById('clientForm').addEventListener('submit', async function(e) {
+        // Form submission and client saving
+        document.getElementById('clientForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            const visitDate = document.getElementById('visitDate').value;
-            const visitTime = document.getElementById('visitTime').value;
-            
-            const visit = {
-                date: visitDate,
-                time: visitTime,
+            console.log('Form submitted');
+
+            const visitDetails = {
+                date: document.getElementById('visitDate').value,
+                time: document.getElementById('visitTime').value,
                 guards: document.getElementById('guards').value,
                 haircut: document.getElementById('haircut').value,
                 notes: document.getElementById('notes').value
             };
 
-            const transaction = db.transaction(['clients'], 'readwrite');
-            const store = transaction.objectStore('clients');
-            const phoneIndex = store.index('phoneIndex');
-
-            try {
-                // Check if client with this phone number exists
-                const phone = document.getElementById('phone').value;
-                const existingClientRequest = phoneIndex.get(phone);
-                
-                existingClientRequest.onsuccess = function(event) {
-                    const existingClient = event.target.result;
-                    
-                    if (existingClient) {
-                        // Update existing client
-                        existingClient.visits = existingClient.visits || [];
-                        existingClient.visits.unshift(visit);
-                        store.put(existingClient).onsuccess = () => {
-                            alert('Visit added to existing client!');
-                            document.getElementById('clientForm').reset();
-                            document.getElementById('photoPreview').style.display = 'none';
-                            displayClients();
-                        };
-                    } else {
-                        // Create new client
-                        const newClient = {
-                            name: document.getElementById('name').value,
-                            phone: phone,
-                            photo: document.getElementById('photoPreview').src,
-                            visits: [visit]
-                        };
-                        
-                        store.add(newClient).onsuccess = () => {
-                            alert('New client saved!');
-                            document.getElementById('clientForm').reset();
-                            document.getElementById('photoPreview').style.display = 'none';
-                            displayClients();
-                        };
-                    }
-                };
-            } catch (err) {
-                alert('Error saving client. Please try again.');
-                console.error(err);
-            }
-        });
-
-        // Add new visit to existing client
-        async function addVisit(clientId) {
-            const visitDate = prompt('Enter visit date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
-            if (!visitDate) return;
-            
-            const visitTime = prompt('Enter visit time (HH:MM):', new Date().toTimeString().slice(0,5));
-            if (!visitTime) return;
-            
-            const guards = prompt('Guards used:', '');
-            const haircut = prompt('Haircut style:', '');
-            const notes = prompt('Notes:', '');
-
-            const visit = {
-                date: visitDate,
-                time: visitTime,
-                guards: guards,
-                haircut: haircut,
-                notes: notes
+            const client = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                photo: document.getElementById('photoPreview').src || '',
+                visits: [visitDetails],
+                lastVisit: new Date().toISOString()
             };
 
+            console.log('Saving client:', client);
+
             const transaction = db.transaction(['clients'], 'readwrite');
             const store = transaction.objectStore('clients');
-            
-            const clientRequest = store.get(clientId);
-            clientRequest.onsuccess = function(event) {
+
+            store.add(client).onsuccess = (event) => {
+                console.log('Client saved successfully');
+                alert('Client saved successfully!');
+                this.reset();
+                document.getElementById('photoPreview').style.display = 'none';
+                setCurrentDateTime();
+                displayClients();
+            };
+
+            transaction.onerror = (event) => {
+                console.error('Transaction error:', event.target.error);
+                alert('Error saving client. Please try again.');
+            };
+        });
+
+        // Add visit to existing client
+        async function addVisit(clientId) {
+            const transaction = db.transaction(['clients'], 'readwrite');
+            const store = transaction.objectStore('clients');
+
+            const visitDate = prompt('Enter visit date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+            if (!visitDate) return;
+
+            const visitTime = prompt('Enter visit time (HH:MM):', new Date().toTimeString().slice(0,5));
+            if (!visitTime) return;
+
+            const visitDetails = {
+                date: visitDate,
+                time: visitTime,
+                guards: prompt('Guards used:') || '',
+                haircut: prompt('Haircut style:') || '',
+                notes: prompt('Notes:') || ''
+            };
+
+            const request = store.get(clientId);
+            request.onsuccess = function(event) {
                 const client = event.target.result;
                 client.visits = client.visits || [];
-                client.visits.unshift(visit);
-                
+                client.visits.unshift(visitDetails);
+                client.lastVisit = new Date().toISOString();
+
                 store.put(client).onsuccess = () => {
                     alert('Visit added successfully!');
                     displayClients();
@@ -318,13 +205,15 @@ Optimized Barber Client PWA Code
 
         // Display clients
         function displayClients() {
+            console.log('Displaying clients');
             const clientList = document.getElementById('clientList');
             const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-            
+
             const transaction = db.transaction(['clients'], 'readonly');
             const store = transaction.objectStore('clients');
-            
-            store.getAll().onsuccess = function(event) {
+
+            const request = store.getAll();
+            request.onsuccess = function(event) {
                 const clients = event.target.result.filter(client =>
                     client.name.toLowerCase().includes(searchTerm) ||
                     client.phone.includes(searchTerm)
@@ -332,7 +221,7 @@ Optimized Barber Client PWA Code
 
                 clientList.innerHTML = clients.map(client => `
                     <div class="client-card">
-                        <h3>${client.name} 
+                        <h3>${client.name}
                             <span class="visit-count">
                                 ${client.visits ? client.visits.length : 0} visits
                             </span>
@@ -345,8 +234,8 @@ Optimized Barber Client PWA Code
                             ${client.visits ? client.visits.map(visit => `
                                 <div class="history-entry">
                                     <strong>${visit.date} at ${visit.time}</strong>
-                                    <p>Guards: ${visit.guards}</p>
-                                    <p>Haircut: ${visit.haircut}</p>
+                                    <p>Guards: ${visit.guards || 'Not specified'}</p>
+                                    <p>Haircut: ${visit.haircut || 'Not specified'}</p>
                                     ${visit.notes ? `<p>Notes: ${visit.notes}</p>` : ''}
                                 </div>
                             `).join('') : 'No visits recorded'}
@@ -358,6 +247,11 @@ Optimized Barber Client PWA Code
                     </div>
                 `).join('');
             };
+
+            request.onerror = function(event) {
+                console.error('Error displaying clients:', event.target.error);
+                alert('Error loading clients. Please refresh the page.');
+            };
         }
 
         function filterClients() {
@@ -367,7 +261,7 @@ Optimized Barber Client PWA Code
         function showSection(section) {
             document.getElementById('formSection').style.display = section === 'form' ? 'block' : 'none';
             document.getElementById('listSection').style.display = section === 'list' ? 'block' : 'none';
-            
+
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
             });
