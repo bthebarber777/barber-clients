@@ -1,272 +1,244 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- [Previous head and style sections remain the same] -->
+<!-- [Previous head section remains the same] -->
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Barber Client Manager</title>
     <meta name="theme-color" content="#4CAF50">
     <style>
         /* [Previous styles remain the same] */
+
+        /* Enhanced search styles */
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            padding-left: 40px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="%23666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>');
+            background-repeat: no-repeat;
+            background-position: 12px center;
+        }
+
+        .search-suggestions {
+            position: absolute;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .suggestion-item:hover {
+            background: #f5f5f5;
+        }
+
+        .suggestion-item .name {
+            font-weight: bold;
+        }
+
+        .suggestion-item .details {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .no-results {
+            padding: 12px;
+            color: #666;
+            text-align: center;
+        }
+
+        /* Highlight matching text */
+        .highlight {
+            background-color: #ffd700;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="tab-bar">
-            <button class="tab active" onclick="showSection('form')">New Client</button>
-            <button class="tab" onclick="showSection('list')">Client List</button>
+    <!-- [Previous HTML structure remains the same until the search section] -->
+    <div id="listSection" style="display: none;">
+        <div class="search-container">
+            <input type="text" 
+                   id="searchInput" 
+                   class="search-input" 
+                   placeholder="Search by first name..."
+                   autocomplete="off">
+            <div id="searchSuggestions" class="search-suggestions"></div>
         </div>
-
-        <div id="formSection">
-            <form id="clientForm">
-                <div class="form-group">
-                    <label for="name">Client Name:</label>
-                    <input type="text" id="name" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="phone">Phone Number:</label>
-                    <input type="tel" id="phone" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Visit Date and Time:</label>
-                    <div class="datetime-group">
-                        <input type="date" id="visitDate" required>
-                        <input type="time" id="visitTime" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <button type="button" id="cameraButton">Take Client Photo</button>
-                    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none">
-                    <img id="photoPreview" class="photo-preview" style="display: none;">
-                </div>
-
-                <div class="form-group">
-                    <label for="guards">Guards Used:</label>
-                    <input type="text" id="guards" placeholder="e.g., #2 on sides, #3 on top">
-                </div>
-
-                <div class="form-group">
-                    <label for="haircut">Haircut Style:</label>
-                    <input type="text" id="haircut" placeholder="e.g., Fade, Undercut, etc.">
-                </div>
-
-                <div class="form-group">
-                    <label for="notes">Notes:</label>
-                    <textarea id="notes" rows="3"></textarea>
-                </div>
-
-                <button type="submit" id="saveButton">Save Client</button>
-            </form>
-        </div>
-
-        <div id="listSection" style="display: none;">
-            <input type="text" id="searchInput" placeholder="Search clients..." oninput="filterClients()" style="margin-bottom: 20px">
-            <div id="clientList"></div>
-        </div>
+        <div id="clientList"></div>
     </div>
 
     <script>
-        // Initialize date and time to current values
-        function setCurrentDateTime() {
-            const now = new Date();
-            const dateInput = document.getElementById('visitDate');
-            const timeInput = document.getElementById('visitTime');
+        // [Previous initialization code remains the same]
+
+        // Enhanced search functionality
+        let searchTimeout;
+        const searchInput = document.getElementById('searchInput');
+        const searchSuggestions = document.getElementById('searchSuggestions');
+
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.trim();
             
-            dateInput.value = now.toISOString().split('T')[0];
-            timeInput.value = now.toTimeString().slice(0,5);
-        }
-        setCurrentDateTime();
-
-        // Database initialization
-        let db;
-        const dbName = 'BarberClientsDB';
-        const request = indexedDB.open(dbName, 3); // Increased version for clean slate
-
-        request.onerror = (event) => {
-            console.error('Database error:', event.target.error);
-            alert('Database error. Please try again.');
-        };
-
-        request.onupgradeneeded = (event) => {
-            db = event.target.result;
-            if (db.objectStoreNames.contains('clients')) {
-                db.deleteObjectStore('clients');
-            }
-            const store = db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
-            store.createIndex('phoneIndex', 'phone', { unique: false });
-        };
-
-        request.onsuccess = (event) => {
-            db = event.target.result;
-            console.log('Database opened successfully');
-            displayClients();
-        };
-
-        // Camera handling
-        document.getElementById('cameraButton').addEventListener('click', async () => {
-            try {
-                await navigator.mediaDevices.getUserMedia({ video: true });
-                document.getElementById('photoInput').click();
-            } catch (err) {
-                console.error('Camera error:', err);
-                alert('Please allow camera access to take photos.');
-            }
-        });
-
-        document.getElementById('photoInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.getElementById('photoPreview');
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // Form submission and client saving
-        document.getElementById('clientForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            console.log('Form submitted');
-
-            const visitDetails = {
-                date: document.getElementById('visitDate').value,
-                time: document.getElementById('visitTime').value,
-                guards: document.getElementById('guards').value,
-                haircut: document.getElementById('haircut').value,
-                notes: document.getElementById('notes').value
-            };
-
-            const client = {
-                name: document.getElementById('name').value,
-                phone: document.getElementById('phone').value,
-                photo: document.getElementById('photoPreview').src || '',
-                visits: [visitDetails],
-                lastVisit: new Date().toISOString()
-            };
-
-            console.log('Saving client:', client);
-
-            const transaction = db.transaction(['clients'], 'readwrite');
-            const store = transaction.objectStore('clients');
-
-            store.add(client).onsuccess = (event) => {
-                console.log('Client saved successfully');
-                alert('Client saved successfully!');
-                this.reset();
-                document.getElementById('photoPreview').style.display = 'none';
-                setCurrentDateTime();
-                displayClients();
-            };
-
-            transaction.onerror = (event) => {
-                console.error('Transaction error:', event.target.error);
-                alert('Error saving client. Please try again.');
-            };
-        });
-
-        // Add visit to existing client
-        async function addVisit(clientId) {
-            const transaction = db.transaction(['clients'], 'readwrite');
-            const store = transaction.objectStore('clients');
-
-            const visitDate = prompt('Enter visit date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
-            if (!visitDate) return;
-
-            const visitTime = prompt('Enter visit time (HH:MM):', new Date().toTimeString().slice(0,5));
-            if (!visitTime) return;
-
-            const visitDetails = {
-                date: visitDate,
-                time: visitTime,
-                guards: prompt('Guards used:') || '',
-                haircut: prompt('Haircut style:') || '',
-                notes: prompt('Notes:') || ''
-            };
-
-            const request = store.get(clientId);
-            request.onsuccess = function(event) {
-                const client = event.target.result;
-                client.visits = client.visits || [];
-                client.visits.unshift(visitDetails);
-                client.lastVisit = new Date().toISOString();
-
-                store.put(client).onsuccess = () => {
-                    alert('Visit added successfully!');
+            // Clear previous timeout
+            clearTimeout(searchTimeout);
+            
+            // Set new timeout for searching
+            searchTimeout = setTimeout(() => {
+                if (searchTerm.length > 0) {
+                    searchClients(searchTerm);
+                } else {
+                    searchSuggestions.style.display = 'none';
                     displayClients();
-                };
-            };
-        }
+                }
+            }, 300); // 300ms delay for better performance
+        });
 
-        // Display clients
-        function displayClients() {
-            console.log('Displaying clients');
-            const clientList = document.getElementById('clientList');
-            const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
+                searchSuggestions.style.display = 'none';
+            }
+        });
 
+        async function searchClients(searchTerm) {
             const transaction = db.transaction(['clients'], 'readonly');
             const store = transaction.objectStore('clients');
-
-            const request = store.getAll();
-            request.onsuccess = function(event) {
-                const clients = event.target.result.filter(client =>
-                    client.name.toLowerCase().includes(searchTerm) ||
-                    client.phone.includes(searchTerm)
-                );
-
-                clientList.innerHTML = clients.map(client => `
-                    <div class="client-card">
-                        <h3>${client.name}
-                            <span class="visit-count">
-                                ${client.visits ? client.visits.length : 0} visits
-                            </span>
-                        </h3>
-                        <p>Phone: ${client.phone}</p>
-                        ${client.photo ? `<img src="${client.photo}" class="photo-preview">` : ''}
-                        
-                        <div class="visit-history">
-                            <h4>Visit History</h4>
-                            ${client.visits ? client.visits.map(visit => `
-                                <div class="history-entry">
-                                    <strong>${visit.date} at ${visit.time}</strong>
-                                    <p>Guards: ${visit.guards || 'Not specified'}</p>
-                                    <p>Haircut: ${visit.haircut || 'Not specified'}</p>
-                                    ${visit.notes ? `<p>Notes: ${visit.notes}</p>` : ''}
-                                </div>
-                            `).join('') : 'No visits recorded'}
-                        </div>
-                        
-                        <button onclick="addVisit(${client.id})" class="add-visit-btn">
-                            Add New Visit
-                        </button>
-                    </div>
-                `).join('');
-            };
-
-            request.onerror = function(event) {
-                console.error('Error displaying clients:', event.target.error);
-                alert('Error loading clients. Please refresh the page.');
-            };
-        }
-
-        function filterClients() {
-            displayClients();
-        }
-
-        function showSection(section) {
-            document.getElementById('formSection').style.display = section === 'form' ? 'block' : 'none';
-            document.getElementById('listSection').style.display = section === 'list' ? 'block' : 'none';
-
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
+            const clients = await new Promise((resolve) => {
+                store.getAll().onsuccess = (event) => resolve(event.target.result);
             });
-            event.target.classList.add('active');
+
+            // Split search term into first name and last name
+            const terms = searchTerm.toLowerCase().split(' ');
+            const firstName = terms[0];
+
+            // Filter clients based on first name
+            const matchingClients = clients.filter(client => {
+                const clientNames = client.name.toLowerCase().split(' ');
+                const clientFirstName = clientNames[0];
+                return clientFirstName.includes(firstName);
+            });
+
+            // Sort results by relevance
+            matchingClients.sort((a, b) => {
+                const aFirstName = a.name.toLowerCase().split(' ')[0];
+                const bFirstName = b.name.toLowerCase().split(' ')[0];
+                
+                // Exact matches first
+                if (aFirstName === firstName) return -1;
+                if (bFirstName === firstName) return 1;
+                
+                // Then by most recent visit
+                return new Date(b.lastVisit) - new Date(a.lastVisit);
+            });
+
+            displaySearchResults(matchingClients, searchTerm);
         }
+
+        function displaySearchResults(clients, searchTerm) {
+            if (clients.length === 0) {
+                searchSuggestions.innerHTML = `
+                    <div class="no-results">
+                        No clients found with that name
+                    </div>`;
+                searchSuggestions.style.display = 'block';
+                return;
+            }
+
+            const suggestions = clients.map(client => {
+                const name = highlightMatch(client.name, searchTerm);
+                const lastVisit = client.visits && client.visits.length > 0 
+                    ? `Last visit: ${client.visits[0].date}`
+                    : 'No visits yet';
+                
+                return `
+                    <div class="suggestion-item" onclick="selectClient(${client.id})">
+                        <div class="name">${name}</div>
+                        <div class="details">
+                            ${client.phone} | ${lastVisit}
+                        </div>
+                    </div>`;
+            }).join('');
+
+            searchSuggestions.innerHTML = suggestions;
+            searchSuggestions.style.display = 'block';
+        }
+
+        function highlightMatch(text, searchTerm) {
+            if (!searchTerm) return text;
+            
+            const searchTerms = searchTerm.toLowerCase().split(' ');
+            let highlightedText = text;
+
+            searchTerms.forEach(term => {
+                const regex = new RegExp(`(${term})`, 'gi');
+                highlightedText = highlightedText.replace(regex, '<span class="highlight">$1</span>');
+            });
+
+            return highlightedText;
+        }
+
+        async function selectClient(clientId) {
+            const transaction = db.transaction(['clients'], 'readonly');
+            const store = transaction.objectStore('clients');
+            
+            const client = await new Promise((resolve) => {
+                store.get(clientId).onsuccess = (event) => resolve(event.target.result);
+            });
+
+            // Clear search and hide suggestions
+            searchInput.value = '';
+            searchSuggestions.style.display = 'none';
+
+            // Display only the selected client
+            const clientList = document.getElementById('clientList');
+            clientList.innerHTML = `
+                <div class="client-card">
+                    <h3>${client.name}
+                        <span class="visit-count">
+                            ${client.visits ? client.visits.length : 0} visits
+                        </span>
+                    </h3>
+                    <p>Phone: ${client.phone}</p>
+                    ${client.photo ? `<img src="${client.photo}" class="photo-preview">` : ''}
+                    
+                    <div class="visit-history">
+                        <h4>Visit History</h4>
+                        ${client.visits ? client.visits.map(visit => `
+                            <div class="history-entry">
+                                <strong>${visit.date} at ${visit.time}</strong>
+                                <p>Guards: ${visit.guards || 'Not specified'}</p>
+                                <p>Haircut: ${visit.haircut || 'Not specified'}</p>
+                                ${visit.notes ? `<p>Notes: ${visit.notes}</p>` : ''}
+                            </div>
+                        `).join('') : 'No visits recorded'}
+                    </div>
+                    
+                    <button onclick="addVisit(${client.id})" class="add-visit-btn">
+                        Add New Visit
+                    </button>
+                </div>`;
+        }
+
+        // [Rest of the previous code remains the same]
     </script>
 </body>
 </html>
