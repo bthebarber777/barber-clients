@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barber Client Manager</title>
+    <meta name="theme-color" content="#4CAF50">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        .photo-preview {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .client-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .tab-bar {
+            display: flex;
+            margin-bottom: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            border-radius: 6px;
+        }
+        .tab.active {
+            background: white;
+            color: #4CAF50;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tab-bar">
+            <button class="tab active" onclick="showSection('form')">New Client</button>
+            <button class="tab" onclick="showSection('list')">Client List</button>
+        </div>
+
+        <div id="formSection">
+            <form id="clientForm">
+                <div class="form-group">
+                    <label for="name">Client Name:</label>
+                    <input type="text" id="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number:</label>
+                    <input type="tel" id="phone" required>
+                </div>
+
+                <div class="form-group">
+                    <button type="button" id="cameraButton">Take Client Photo</button>
+                    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none">
+                    <img id="photoPreview" class="photo-preview" style="display: none;">
+                </div>
+
+                <div class="form-group">
+                    <label for="guards">Guards Used:</label>
+                    <input type="text" id="guards" placeholder="e.g., #2 on sides, #3 on top">
+                </div>
+
+                <div class="form-group">
+                    <label for="haircut">Haircut Style:</label>
+                    <input type="text" id="haircut" placeholder="e.g., Fade, Undercut, etc.">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Notes:</label>
+                    <textarea id="notes" rows="3"></textarea>
+                </div>
+
+                <button type="submit">Save Client</button>
+            </form>
+        </div>
+
+        <div id="listSection" style="display: none;">
+            <input type="text" id="searchInput" placeholder="Search clients..." oninput="filterClients()" style="margin-bottom: 20px">
+            <div id="clientList"></div>
+        </div>
+    </div>
+
+    <script>
+        let db;
+        const dbName = 'BarberClientsDB';
+        const request = indexedDB.open(dbName, 1);
+
+        request.onerror = () => alert('Database error. Please try again.');
+
+        request.onupgradeneeded = (event) => {
+            db = event.target.result;
+            if (!db.objectStoreNames.contains('clients')) {
+                db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
+            }
+        };
+
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            displayClients();
+        };
+
+        // Camera handling
+        document.getElementById('cameraButton').addEventListener('click', async () => {
+            try {
+                await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('photoInput').click();
+            } catch (err) {
+                alert('Please allow camera access to take photos.');
+            }
+        });
+
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('photoPreview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Save client
+        document.getElementById('clientForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const client = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                photo: document.getElementById('photoPreview').src,
+                guards: document.getElementById('guards').value,
+                haircut: document.getElementById('haircut').value,
+                notes: document.getElementById('notes').value,
+                date: new Date().toLocaleDateString()
+            };
+
+            const transaction = db.transaction(['clients'], 'readwrite');
+            const store = transaction.objectStore('clients');
+            
+            store.add(client).onsuccess = () => {
+                alert('Client saved!');
+                this.reset();
+                document.getElementById('photoPreview').style.display = 'none';
+                displayClients();
+            };
+        });
+
+        // Display clients
+        function displayClients() {
+            const clientList = document.getElementById('clientList');
+            const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
+            
+            const transaction = db.transaction(['clients'], 'readonly');
+            const store = transaction.objectStore('clients');
+            
+            store.getAll().onsuccess = function(event) {
+                const clients = event.target.result.filter(client =>
+                    client.name.toLowerCase().includes(searchTerm) ||
+                    client.phone.includes(searchTerm) ||
+                    client.haircut.toLowerCase().includes(searchTerm)
+                );
+
+                clientList.innerHTML = clients.map(client => `
+                    <div class="client-card">
+                        <h3>${client.name}</h3>
+                        <p>Phone: ${client.phone}</p>
+                        ${client.photo ? `<img src="${client.photo}" class="photo-preview">` : ''}
+                        <p>Guards Used: ${client.guards}</p>
+                        <p>Haircut Style: ${client.haircut}</p>
+                        <p>Notes: ${client.notes}</p>
+                        <p>Date: ${client.date}</p>
+                    </div>
+                `).join('');
+            };
+        }
+
+        function filterClients() {
+            displayClients();
+        }
+
+        function showSection(section) {
+            document.getElementById('formSection').style.display = section === 'form' ? 'block' : 'none';
+            document.getElementById('listSection').style.display = section === 'list' ? 'block' : 'none';
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
